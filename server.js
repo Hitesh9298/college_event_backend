@@ -75,7 +75,7 @@ const limiter = rateLimit({
 
 // CORS configuration
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://192.168.69.25:3000','*'],
+  origin: ['http://localhost:3000', 'http://192.168.69.25:3000',   'https://clgevent.netlify.app'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
