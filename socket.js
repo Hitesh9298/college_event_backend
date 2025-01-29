@@ -13,7 +13,7 @@ const groupChats = new Map();
 const initializeSocket = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: ['http://localhost:3000', 'http://192.168.69.25:3000', 'https://clgevent.netlify.app'],
+      origin: ['https://clgevent.netlify.app'],
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       credentials: true,
       allowedHeaders: ['Content-Type', 'Authorization']

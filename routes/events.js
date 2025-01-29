@@ -1,35 +1,18 @@
 import express from 'express';
-import multer from 'multer';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { protect } from '../middleware/authMiddleware.js';
 import Event from '../models/Event.js';
+import { upload } from '../config/uploadConfig.js';
+import cloudinary from '../config/cloudinary.js';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../uploads/events'));
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'));
-    }
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'events',
+    allowed_formats: ['jpg', 'png', 'jpeg']
   }
 });
 
@@ -91,6 +74,9 @@ router.get('/', async (req, res) => {
 // Create event
 // Create event route
 // Create event route
+// Update event creation route
+
+// Update event creation route
 router.post('/', protect, upload.single('image'), async (req, res) => {
   try {
     let schedule = [];
@@ -108,22 +94,35 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
         name: req.body.organizerName || 'College Club',
         description: req.body.organizerDescription
       },
-      schedule: schedule
+      schedule: schedule,
+      // Update image handling for Cloudinary
+      image: req.file ? req.file.path : undefined
     };
 
-    if (req.file) {
-      eventData.image = `/uploads/events/${req.file.filename}`;
-    }
+    const event = new Event(eventData);
+    await event.save();
 
-    const event = await Event.create(eventData);
+    // Return the complete event object with Cloudinary URL
     res.status(201).json(event);
   } catch (error) {
-    console.error('Error creating event:', error);
-    res.status(400).json({ message: error.message });
+    console.error('Event creation error:', error);
+    // Delete uploaded image if event creation fails
+    if (req.file?.path) {
+      try {
+        const publicId = req.file.filename;
+        await cloudinary.uploader.destroy(publicId);
+      } catch (deleteError) {
+        console.error('Error deleting image:', deleteError);
+      }
+    }
+    res.status(500).json({ message: error.message });
   }
 });
 
+  
+
 // Delete event
+// Update delete event route to clean up Cloudinary image
 router.delete('/:id', protect, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -135,7 +134,17 @@ router.delete('/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this event' });
     }
 
-    await event.remove();
+    // Delete image from Cloudinary if exists
+    if (event.image) {
+      try {
+        const publicId = event.image.split('/').pop().split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (deleteError) {
+        console.error('Error deleting image from Cloudinary:', deleteError);
+      }
+    }
+
+    await event.deleteOne();
     res.json({ message: 'Event deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

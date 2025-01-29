@@ -10,47 +10,11 @@ import eventRoutes from './routes/events.js';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import initializeSocket from './socket.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-import multer from 'multer';
 
-// Get current directory name in ES module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Create uploads directory if it doesn't exist
-const uploadsDir = path.join(__dirname, 'uploads');
-const eventUploadsDir = path.join(uploadsDir, 'events');
-
-// Ensure uploads directories exist
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
-if (!fs.existsSync(eventUploadsDir)) {
-  fs.mkdirSync(eventUploadsDir);
-}
 
 // Configure multer for image upload
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, eventUploadsDir);
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
+// Replace existing multer config with:
 
-export const upload = multer({ 
-  storage: storage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Not an image! Please upload an image.'), false);
-    }
-  }
-});
 
 dotenv.config();
 
@@ -75,7 +39,7 @@ const limiter = rateLimit({
 
 // CORS configuration
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://192.168.69.25:3000',   'https://clgevent.netlify.app'],
+  origin: ['https://clgevent.netlify.app'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -94,8 +58,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory with proper path
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 // Initialize Socket.IO
 const io = initializeSocket(httpServer);
