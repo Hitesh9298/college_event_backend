@@ -86,7 +86,12 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
       console.error('Error parsing schedule:', e);
       return res.status(400).json({ message: 'Invalid schedule format' });
     }
-    const imageUrl = req.file ? req.file.path : '';
+
+    // Check if file was uploaded
+    const imageUrl = req.file ? req.file.path : null;
+    if (!imageUrl && req.body.image) {
+      imageUrl = req.body.image;
+    }
 
     const eventData = {
       ...req.body,
@@ -96,20 +101,21 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
         description: req.body.organizerDescription
       },
       schedule: schedule,
-      // Update image handling for Cloudinary
-      image: imageUrl // This will now be Cloudinary URL
+      image: imageUrl // Cloudinary URL
     };
 
     const event = new Event(eventData);
     await event.save();
 
-    // Return the complete event object with Cloudinary URL
-    res.status(201).json(event);
+    // Populate creator details before sending response
+    const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
+    res.status(201).json(populatedEvent);
+
   } catch (error) {
     console.error('Event creation error:', error);
-    // Delete uploaded image if event creation fails
     if (req.file?.path) {
       try {
+        // Extract public_id from Cloudinary URL
         const publicId = req.file.filename;
         await cloudinary.uploader.destroy(publicId);
       } catch (deleteError) {

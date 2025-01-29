@@ -65,6 +65,16 @@ const io = initializeSocket(httpServer);
 
 // Middleware
 app.use(express.json());
+// Add this before your routes
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'File is too large. Max size is 5MB' });
+    }
+    return res.status(400).json({ message: error.message });
+  }
+  next(error);
+});
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
