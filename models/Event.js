@@ -57,7 +57,7 @@ const eventSchema = new mongoose.Schema({
   }],
   image: {
     type: String,
-    required: false
+    required: true
   },
   status: {
     type: String,

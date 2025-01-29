@@ -79,33 +79,42 @@ router.get('/', async (req, res) => {
 // Update event creation route
 router.post('/', protect, upload.single('image'), async (req, res) => {
   try {
-    console.log('Uploaded File:', req.file); // Debugging
+    console.log('Request body:', req.body);
+    console.log('Uploaded file:', req.file);
 
-    let imageUrl = req.file?.path || null;
-    if (!imageUrl) {
-      return res.status(400).json({ message: 'Image upload failed' });
+    if (!req.file?.path) {
+      return res.status(400).json({ message: 'Image is required' });
     }
 
-    console.log('✅ Cloudinary URL:', imageUrl);
-
     const eventData = {
-      ...req.body,
+      title: req.body.title,
+      description: req.body.description,
+      date: req.body.date,
+      time: req.body.time,
+      venue: req.body.venue,
+      category: req.body.category,
+      maxParticipants: parseInt(req.body.maxParticipants) || 100,
       creator: req.user._id,
+      image: req.file.path,
       organizer: {
-        name: req.body.organizerName || 'College Club',
+        name: req.body.organizerName || 'Default Organizer',
         description: req.body.organizerDescription || ''
       },
-      schedule: JSON.parse(req.body.schedule || '[]'),
-      image: imageUrl
+      schedule: JSON.parse(req.body.schedule || '[]')
     };
 
     const event = new Event(eventData);
     await event.save();
 
-    res.status(201).json(await Event.findById(event._id).populate('creator'));
+    const populatedEvent = await Event.findById(event._id).populate('creator');
+    res.status(201).json(populatedEvent);
+
   } catch (error) {
-    console.error('❌ Upload error:', error);
-    res.status(500).json({ message: 'Error creating event' });
+    console.error('Event creation error:', error);
+    res.status(400).json({ 
+      message: error.message,
+      details: error.errors
+    });
   }
 });
 
