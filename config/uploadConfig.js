@@ -7,8 +7,11 @@ const storage = new CloudinaryStorage({
       folder: 'events',
       allowed_formats: ['jpg', 'png', 'jpeg'],
       transformation: [{ width: 1000, height: 1000, crop: "limit" }],
-      // Add unique filename
-      public_id: (req, file) => `event-${Date.now()}-${file.originalname.split('.')[0]}`
+      public_id: (req, file) => {
+        const uniqueName = `event-${Date.now()}-${file.originalname.split('.')[0]}`;
+        console.log('Generating public_id:', uniqueName);
+        return uniqueName;
+      }
     }
   });
 

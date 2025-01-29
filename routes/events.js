@@ -79,18 +79,12 @@ router.get('/', async (req, res) => {
 // Update event creation route
 router.post('/', protect, upload.single('image'), async (req, res) => {
   try {
-    let schedule = [];
-    try {
-      schedule = JSON.parse(req.body.schedule || '[]');
-    } catch (e) {
-      console.error('Error parsing schedule:', e);
-      return res.status(400).json({ message: 'Invalid schedule format' });
-    }
+    console.log('File:', req.file); // Debug uploaded file
 
-    // Check if file was uploaded
-    const imageUrl = req.file ? req.file.path : null;
-    if (!imageUrl && req.body.image) {
-      imageUrl = req.body.image;
+    let imageUrl = null;
+    if (req.file) {
+      imageUrl = req.file.path; // Cloudinary returns URL in path
+      console.log('Cloudinary URL:', imageUrl);
     }
 
     const eventData = {
@@ -100,32 +94,19 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
         name: req.body.organizerName || 'College Club',
         description: req.body.organizerDescription
       },
-      schedule: schedule,
-      image: imageUrl // Cloudinary URL
+      schedule: JSON.parse(req.body.schedule || '[]'),
+      image: imageUrl
     };
 
     const event = new Event(eventData);
     await event.save();
 
-    // Populate creator details before sending response
-    const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
-    res.status(201).json(populatedEvent);
-
+    res.status(201).json(await Event.findById(event._id).populate('creator'));
   } catch (error) {
-    console.error('Event creation error:', error);
-    if (req.file?.path) {
-      try {
-        // Extract public_id from Cloudinary URL
-        const publicId = req.file.filename;
-        await cloudinary.uploader.destroy(publicId);
-      } catch (deleteError) {
-        console.error('Error deleting image:', deleteError);
-      }
-    }
+    console.error('Upload error:', error);
     res.status(500).json({ message: error.message });
   }
 });
-
   
 
 // Delete event
