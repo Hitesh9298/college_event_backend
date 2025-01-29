@@ -6,11 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
-<<<<<<< HEAD
   
-=======
-    
->>>>>>> 28e3bb1f56c3602391d56002a27850633fcd1d91
   },
   "keywords": [
     "server",
