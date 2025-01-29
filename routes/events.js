@@ -86,6 +86,7 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
       console.error('Error parsing schedule:', e);
       return res.status(400).json({ message: 'Invalid schedule format' });
     }
+    const imageUrl = req.file ? req.file.path : '';
 
     const eventData = {
       ...req.body,
@@ -96,7 +97,7 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
       },
       schedule: schedule,
       // Update image handling for Cloudinary
-      image: req.file ? req.file.path : undefined
+      image: imageUrl // This will now be Cloudinary URL
     };
 
     const event = new Event(eventData);
