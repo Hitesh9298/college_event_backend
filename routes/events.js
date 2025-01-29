@@ -79,20 +79,21 @@ router.get('/', async (req, res) => {
 // Update event creation route
 router.post('/', protect, upload.single('image'), async (req, res) => {
   try {
-    console.log('File:', req.file); // Debug uploaded file
+    console.log('Uploaded File:', req.file); // Debugging
 
-    let imageUrl = null;
-    if (req.file) {
-      imageUrl = req.file.path; // Cloudinary returns URL in path
-      console.log('Cloudinary URL:', imageUrl);
+    let imageUrl = req.file?.path || null;
+    if (!imageUrl) {
+      return res.status(400).json({ message: 'Image upload failed' });
     }
+
+    console.log('✅ Cloudinary URL:', imageUrl);
 
     const eventData = {
       ...req.body,
       creator: req.user._id,
       organizer: {
         name: req.body.organizerName || 'College Club',
-        description: req.body.organizerDescription
+        description: req.body.organizerDescription || ''
       },
       schedule: JSON.parse(req.body.schedule || '[]'),
       image: imageUrl
@@ -103,41 +104,46 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
 
     res.status(201).json(await Event.findById(event._id).populate('creator'));
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ message: error.message });
+    console.error('❌ Upload error:', error);
+    res.status(500).json({ message: 'Error creating event' });
   }
 });
-  
+
 
 // Delete event
 // Update delete event route to clean up Cloudinary image
 router.delete('/:id', protect, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
+    if (!event) return res.status(404).json({ message: 'Event not found' });
 
     if (event.creator.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: 'Not authorized to delete this event' });
     }
 
-    // Delete image from Cloudinary if exists
+    // Extract the public ID from Cloudinary URL
     if (event.image) {
       try {
-        const publicId = event.image.split('/').pop().split('.')[0];
-        await cloudinary.uploader.destroy(publicId);
+        const urlParts = event.image.split('/');
+        const filenameWithExtension = urlParts[urlParts.length - 1]; // Get last part
+        const publicId = filenameWithExtension.split('.')[0]; // Remove file extension
+
+        console.log(`Deleting Cloudinary image: ${publicId}`);
+        await cloudinary.uploader.destroy(`events/${publicId}`); // Ensure correct folder
       } catch (deleteError) {
-        console.error('Error deleting image from Cloudinary:', deleteError);
+        console.error('❌ Cloudinary Delete Error:', deleteError);
       }
     }
 
     await event.deleteOne();
     res.json({ message: 'Event deleted successfully' });
   } catch (error) {
+    console.error('❌ Delete error:', error);
     res.status(500).json({ message: error.message });
   }
 });
+
+ 
 
 
 // Get event by ID with populated fields
