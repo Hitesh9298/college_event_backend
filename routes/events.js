@@ -70,68 +70,47 @@ router.get('/', async (req, res) => {
 });
 
 // Create event with validation
-router.post(
-  '/',
-  protect,
-  [
-    body('title').trim().notEmpty().withMessage('Title is required'),
-    body('description').trim().notEmpty().withMessage('Description is required'),
-    body('date').isISO8601().toDate().withMessage('Valid date is required'),
-    body('time').notEmpty().withMessage('Time is required'),
-    body('venue').trim().notEmpty().withMessage('Venue is required'),
-    body('category').trim().notEmpty().withMessage('Category is required'),
-    body('maxParticipants').optional().isInt({ min: 1 }).withMessage('Max participants must be a positive number'),
-    body('organizerName').optional().trim(),
-    body('organizerDescription').optional().trim(),
-    body('schedule').optional().custom((value) => {
-      if (!value) return true;
+router.post('/', protect, async (req, res) => {
+  try {
+    const eventData = {
+      title: req.body.title,
+      description: req.body.description,
+      date: req.body.date,
+      time: req.body.time,
+      venue: req.body.venue,
+      category: req.body.category,
+      maxParticipants: parseInt(req.body.maxParticipants) || 100,
+      creator: req.user._id,
+      image: req.body.image || '', // Use image URL directly
+      organizer: {
+        name: req.body.organizerName || 'Default Organizer',
+        description: req.body.organizerDescription || ''
+      }
+    };
+
+    if (req.body.schedule) {
       try {
-        const schedule = JSON.parse(value);
-        if (!Array.isArray(schedule)) throw new Error('Schedule must be an array');
-        return true;
-      } catch (error) {
-        throw new Error('Invalid schedule format');
-      }
-    })
-  ],
-  validateRequest,
-  async (req, res) => {
-    try {
-      console.log('Received form data:', req.body); // Debug log
-
-      const eventData = {
-        title: req.body.title,
-        description: req.body.description,
-        date: req.body.date,
-        time: req.body.time,
-        venue: req.body.location,
-        category: req.body.category,
-        maxParticipants: parseInt(req.body.maxParticipants) || 100,
-        creator: req.user._id,
-        image: req.body.image || '',
-        organizer: {
-          name: req.body.organizerName || 'Default Organizer',
-          description: req.body.organizerDescription || ''
-        }
-      };
-
-      if (req.body.schedule) {
         eventData.schedule = JSON.parse(req.body.schedule);
+      } catch (error) {
+        return res.status(400).json({ 
+          message: 'Invalid schedule format',
+          errors: [{ msg: 'Schedule must be a valid JSON array' }]
+        });
       }
-
-      const event = await Event.create(eventData);
-      const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
-
-      res.status(201).json(populatedEvent);
-    } catch (error) {
-      console.error('Event creation error:', error);
-      res.status(400).json({ 
-        message: 'Error creating event',
-        errors: error.errors || [{ msg: error.message }]
-      });
     }
+
+    const event = await Event.create(eventData);
+    const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
+
+    res.status(201).json(populatedEvent);
+  } catch (error) {
+    console.error('Event creation error:', error);
+    res.status(400).json({ 
+      message: 'Error creating event',
+      errors: error.errors || [{ msg: error.message }]
+    });
   }
-);
+});
 // Delete event
 router.delete(
   '/:id',
