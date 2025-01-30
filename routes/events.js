@@ -3,11 +3,11 @@ import { protect } from '../middleware/authMiddleware.js';
 import { body, param, validationResult } from 'express-validator';
 import Event from '../models/Event.js';
 import { v2 as cloudinary } from 'cloudinary';
-const router = express.Router();
 import { validateRequest } from '../middleware/validateRequest.js';
 
 
 
+const router = express.Router();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
