@@ -54,7 +54,6 @@ router.get('/', async (req, res) => {
 // Create event
 router.post('/', protect, async (req, res) => {
   try {
-    
     const eventData = {
       title: req.body.title,
       description: req.body.description,
@@ -64,7 +63,7 @@ router.post('/', protect, async (req, res) => {
       category: req.body.category,
       maxParticipants: parseInt(req.body.maxParticipants) || 100,
       creator: req.user._id,
-      image: req.body.image,
+      image: req.body.image || '', // Make image optional
       organizer: {
         name: req.body.organizerName || 'Default Organizer',
         description: req.body.organizerDescription || ''

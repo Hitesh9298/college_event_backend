@@ -3,59 +3,49 @@ import mongoose from 'mongoose';
 const eventSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: [true, "Event title is required"],
+    required: true,
     trim: true
   },
   description: {
     type: String,
-    required: [true, "Event description is required"]
+    required: true
   },
   date: {
     type: Date,
-    required: [true, "Event date is required"]
+    required: true
   },
   time: {
     type: String,
-    required: [true, "Event time is required"]
+    required: true
   },
   location: {
     type: String,
-    required: [true, "Event location is required"]
+    required: true
   },
   category: {
     type: String,
-    required: [true, "Category is required"],
-    enum: ['academic', 'cultural', 'sports', 'workshop', 'career', 'music', 'technology', 'other']
+    required: true,
+    enum: ['academic', 'cultural', 'sports', 'workshop', 'career','music', 'technology','other']
   },
   creator: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, "Creator ID is required"]
+    required: true
   },
   organizer: {
     name: {
       type: String,
-      required: [true, "Organizer name is required"]
+      required: true
     },
-    description: {
-      type: String,
-      default: "No description provided"
-    }
+    description: String
   },
   schedule: [{
-    time: {
-      type: String,
-      required: [true, "Schedule time is required"]
-    },
-    activity: {
-      type: String,
-      required: [true, "Schedule activity is required"]
-    }
+    time: String,
+    activity: String
   }],
   maxParticipants: {
     type: Number,
-    required: [true, "Maximum participants count is required"],
-    min: [1, "At least one participant is required"]
+    required: true
   },
   participants: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -67,7 +57,7 @@ const eventSchema = new mongoose.Schema({
   }],
   image: {
     type: String,
-    required: [false, "Image URL is required"]
+    default: '' // Make image optional
   },
   status: {
     type: String,
@@ -78,19 +68,21 @@ const eventSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// ✅ Virtual fields
-eventSchema.virtual('currentParticipants').get(function () {
+// Virtual for current participants count
+eventSchema.virtual('currentParticipants').get(function() {
   return this.participants.length;
 });
 
-eventSchema.virtual('isFull').get(function () {
+// Virtual for checking if event is full
+eventSchema.virtual('isFull').get(function() {
   return this.participants.length >= this.maxParticipants;
 });
 
-// ✅ Method to check if user can register
-eventSchema.methods.canRegister = function (userId) {
+// Method to check if user can register
+eventSchema.methods.canRegister = function(userId) {
   return !this.participants.includes(userId) && !this.isFull;
 };
 
 const Event = mongoose.model('Event', eventSchema);
+
 export default Event;
