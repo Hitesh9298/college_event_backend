@@ -55,10 +55,10 @@ router.get('/', async (req, res) => {
 });
 
 // Create event
-router.post('/', protect, upload.single('image'), async (req, res) => {
+router.post('/', protect, async (req, res) => {
   try {
-    if (!req.file?.path) {
-      return res.status(400).json({ message: 'Image is required' });
+    if (!req.body.image) {
+      return res.status(400).json({ message: 'Image URL is required' });
     }
 
     const eventData = {
@@ -70,7 +70,7 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
       category: req.body.category,
       maxParticipants: parseInt(req.body.maxParticipants) || 100,
       creator: req.user._id,
-      image: req.file.path,
+      image: req.body.image,  // ✅ Store Cloudinary URL from frontend
       organizer: {
         name: req.body.organizerName || 'Default Organizer',
         description: req.body.organizerDescription || ''
@@ -88,7 +88,6 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 });
-
 // Delete event
 router.delete('/:id', protect, async (req, res) => {
   try {
