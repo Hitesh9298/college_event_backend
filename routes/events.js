@@ -102,7 +102,7 @@ router.post(
         schedule: JSON.parse(req.body.schedule || '[]')
       };
 
-      const event = new Event(eventData);
+      const event = await Event.create(eventData);
       await event.save();
       const populatedEvent = await Event.findById(event._id).populate('creator');
 
