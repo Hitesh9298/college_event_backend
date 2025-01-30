@@ -4,6 +4,8 @@ import { body, param, validationResult } from 'express-validator';
 import Event from '../models/Event.js';
 import { v2 as cloudinary } from 'cloudinary';
 const router = express.Router();
+import { validateRequest } from '../middleware/validateRequest.js';
+
 
 
 
@@ -79,13 +81,24 @@ router.post(
   '/',
   protect,
   [
-    body('title').notEmpty().withMessage('Title is required'),
-    body('description').notEmpty().withMessage('Description is required'),
+    body('title').trim().notEmpty().withMessage('Title is required'),
+    body('description').trim().notEmpty().withMessage('Description is required'),
     body('date').isISO8601().toDate().withMessage('Valid date is required'),
     body('time').notEmpty().withMessage('Time is required'),
-    body('venue').notEmpty().withMessage('Venue is required'),
-    body('category').notEmpty().withMessage('Category is required'),
-    body('maxParticipants').optional().isInt({ min: 1 }).withMessage('Max participants must be a positive number')
+    body('venue').trim().notEmpty().withMessage('Venue is required'),
+    body('category').trim().notEmpty().withMessage('Category is required'),
+    body('maxParticipants').optional().isInt({ min: 1 }).withMessage('Max participants must be a positive number'),
+    body('organizerName').optional().trim(),
+    body('organizerDescription').optional().trim(),
+    body('schedule').optional().custom((value) => {
+      try {
+        const schedule = JSON.parse(value);
+        if (!Array.isArray(schedule)) throw new Error('Schedule must be an array');
+        return true;
+      } catch (error) {
+        throw new Error('Invalid schedule format');
+      }
+    })
   ],
   validateRequest,
   async (req, res) => {
@@ -99,7 +112,7 @@ router.post(
         category: req.body.category,
         maxParticipants: parseInt(req.body.maxParticipants) || 100,
         creator: req.user._id,
-        image: req.body.image || '', 
+        image: req.body.image || '',
         organizer: {
           name: req.body.organizerName || 'Default Organizer',
           description: req.body.organizerDescription || ''
@@ -108,13 +121,15 @@ router.post(
       };
 
       const event = await Event.create(eventData);
-      await event.save();
-      const populatedEvent = await Event.findById(event._id).populate('creator');
+      const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
 
       res.status(201).json(populatedEvent);
     } catch (error) {
       console.error('Event creation error:', error);
-      res.status(400).json({ message: error.message });
+      res.status(400).json({ 
+        message: 'Error creating event',
+        errors: error.errors || [{ msg: error.message }]
+      });
     }
   }
 );
