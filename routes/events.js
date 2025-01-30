@@ -1,13 +1,10 @@
+// filepath: /c:/Users/lenovo/Desktop/CollegeProject/server/routes/events.js
 import express from 'express';
 import { protect } from '../middleware/authMiddleware.js';
 import Event from '../models/Event.js';
 import { upload } from '../config/uploadConfig.js';
 import cloudinary from '../config/cloudinary.js';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
-
-
-
-// Configure multer for file uploads
 
 const router = express.Router();
 
@@ -39,11 +36,6 @@ router.post('/:id/register', protect, async (req, res) => {
   }
 });
 
-// ... rest of your routes
-
-
-
-
 // Get all events
 router.get('/', async (req, res) => {
   try {
@@ -63,14 +55,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-
 // Create event
-// Create event route
-// Create event route
-// Update event creation route
-
-// Update event creation route
-// ✅ Create Event
 router.post('/', protect, upload.single('image'), async (req, res) => {
   try {
     if (!req.file?.path) {
@@ -105,9 +90,7 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
   }
 });
 
-
 // Delete event
-// Update delete event route to clean up Cloudinary image
 router.delete('/:id', protect, async (req, res) => {
   try {
     const event = await Event.findById(req.params.id);
@@ -157,34 +140,6 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Register for event
-router.post('/:id/register', protect, async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-
-    // Check if user is already registered
-    if (event.participants.includes(req.user._id)) {
-      return res.status(400).json({ message: 'Already registered for this event' });
-    }
-
-    // Check if event is full
-    if (event.participants.length >= event.maxParticipants) {
-      return res.status(400).json({ message: 'Event is full' });
-    }
-
-    event.participants.push(req.user._id);
-    await event.save();
-
-    res.json({ message: 'Successfully registered for event' });
-  } catch (error) {
-    console.error('Error registering for event:', error);
-    res.status(500).json({ message: 'Error registering for event' });
-  }
-});
-
 // Unregister from event
 router.delete('/:id/register', protect, async (req, res) => {
   try {
@@ -231,7 +186,6 @@ router.post('/:id/save', protect, async (req, res) => {
   }
 });
 
-
 // Get user's events
 router.get('/user', protect, async (req, res) => {
   try {
@@ -256,6 +210,5 @@ router.get('/user/saved', protect, async (req, res) => {
     res.status(500).json({ message: 'Error fetching saved events' });
   }
 });
-
 
 export default router;
