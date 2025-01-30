@@ -57,6 +57,8 @@ router.get('/', async (req, res) => {
 // Create event
 router.post('/', protect, async (req, res) => {
   try {
+    console.log("Incoming Event Data:", req.body); // Debugging log
+
     if (!req.body.image) {
       return res.status(400).json({ message: 'Image URL is required' });
     }
@@ -70,13 +72,15 @@ router.post('/', protect, async (req, res) => {
       category: req.body.category,
       maxParticipants: parseInt(req.body.maxParticipants) || 100,
       creator: req.user._id,
-      image: req.body.image,  // ✅ Store Cloudinary URL from frontend
+      image: req.body.image,  // ✅ Get the correct image URL from frontend
       organizer: {
         name: req.body.organizerName || 'Default Organizer',
         description: req.body.organizerDescription || ''
       },
       schedule: JSON.parse(req.body.schedule || '[]')
     };
+
+    console.log("Final Event Data before saving:", eventData); // Debugging log
 
     const event = new Event(eventData);
     await event.save();
