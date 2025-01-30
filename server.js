@@ -55,6 +55,7 @@ app.use(limiter);
 app.use(cors(corsOptions));
 
 // Body parser middleware
+// Body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -64,7 +65,11 @@ app.use(express.urlencoded({ extended: true }));
 const io = initializeSocket(httpServer);
 
 // Middleware
-app.use(express.json());
+app.use((req, res, next) => {
+  console.log('Incoming Request:', req.method, req.url, req.body);
+  next();
+});
+
 // Add this before your routes
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError) {

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { type } from 'os';
 
 const eventSchema = new mongoose.Schema({
   title: {
@@ -40,8 +41,10 @@ const eventSchema = new mongoose.Schema({
     description: String
   },
   schedule: [{
+    type: Array,
     time: String,
-    activity: String
+    activity: String,
+    required : false
   }],
   maxParticipants: {
     type: Number,
