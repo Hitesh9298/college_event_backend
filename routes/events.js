@@ -104,7 +104,7 @@ router.post(
         description: req.body.description,
         date: req.body.date,
         time: req.body.time,
-        location: req.body.location,
+        venue: req.body.location,
         category: req.body.category,
         maxParticipants: parseInt(req.body.maxParticipants) || 100,
         creator: req.user._id,
