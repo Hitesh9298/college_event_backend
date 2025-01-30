@@ -2,11 +2,16 @@ import express from 'express';
 import { protect } from '../middleware/authMiddleware.js';
 import { body, param, validationResult } from 'express-validator';
 import Event from '../models/Event.js';
-import cloudinary from '.\config\cloudinary.js';
-
+import { v2 as cloudinary } from 'cloudinary';
 const router = express.Router();
 
 
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // Middleware to handle validation errors
 const validateRequest = (req, res, next) => {
