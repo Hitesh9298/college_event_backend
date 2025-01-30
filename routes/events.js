@@ -84,6 +84,7 @@ router.post(
     body('organizerName').optional().trim(),
     body('organizerDescription').optional().trim(),
     body('schedule').optional().custom((value) => {
+      if (!value) return true;
       try {
         const schedule = JSON.parse(value);
         if (!Array.isArray(schedule)) throw new Error('Schedule must be an array');
@@ -109,9 +110,12 @@ router.post(
         organizer: {
           name: req.body.organizerName || 'Default Organizer',
           description: req.body.organizerDescription || ''
-        },
-        schedule: JSON.parse(req.body.schedule || '[]')
+        }
       };
+
+      if (req.body.schedule) {
+        eventData.schedule = JSON.parse(req.body.schedule);
+      }
 
       const event = await Event.create(eventData);
       const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
