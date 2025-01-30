@@ -1,36 +1,53 @@
 import express from 'express';
 import { protect } from '../middleware/authMiddleware.js';
+import { body, param, validationResult } from 'express-validator';
 import Event from '../models/Event.js';
+import cloudinary from '.\config\cloudinary.js';
 
 const router = express.Router();
 
-// Register for event - Changed 'auth' to 'protect'
-router.post('/:id/register', protect, async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
 
-    // Check if user is already registered
-    if (event.participants.includes(req.user._id)) {
-      return res.status(400).json({ message: 'Already registered for this event' });
-    }
 
-    // Check if event is full
-    if (event.participants.length >= event.maxParticipants) {
-      return res.status(400).json({ message: 'Event is full' });
-    }
-
-    event.participants.push(req.user._id);
-    await event.save();
-
-    res.json({ message: 'Successfully registered for event' });
-  } catch (error) {
-    console.error('Error registering for event:', error);
-    res.status(500).json({ message: 'Error registering for event' });
+// Middleware to handle validation errors
+const validateRequest = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
-});
+  next();
+};
+
+// Register for event with validation
+router.post(
+  '/:id/register',
+  protect,
+  param('id').isMongoId().withMessage('Invalid event ID'),
+  validateRequest,
+  async (req, res) => {
+    try {
+      const event = await Event.findById(req.params.id);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      if (event.participants.includes(req.user._id)) {
+        return res.status(400).json({ message: 'Already registered for this event' });
+      }
+
+      if (event.participants.length >= event.maxParticipants) {
+        return res.status(400).json({ message: 'Event is full' });
+      }
+
+      event.participants.push(req.user._id);
+      await event.save();
+
+      res.json({ message: 'Successfully registered for event' });
+    } catch (error) {
+      console.error('Error registering for event:', error);
+      res.status(500).json({ message: 'Error registering for event' });
+    }
+  }
+);
 
 // Get all events
 router.get('/', async (req, res) => {
@@ -45,162 +62,145 @@ router.get('/', async (req, res) => {
     const events = await Event.find(query)
       .populate('creator', 'name email')
       .sort({ date: 1 });
+
     res.json(events);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Create event
-router.post('/', protect, async (req, res) => {
-  try {
-    const eventData = {
-      title: req.body.title,
-      description: req.body.description,
-      date: req.body.date,
-      time: req.body.time,
-      venue: req.body.venue,
-      category: req.body.category,
-      maxParticipants: parseInt(req.body.maxParticipants) || 100,
-      creator: req.user._id,
-      image: req.body.image || '', // Make image optional
-      organizer: {
-        name: req.body.organizerName || 'Default Organizer',
-        description: req.body.organizerDescription || ''
-      },
-      schedule: JSON.parse(req.body.schedule || '[]')
-    };
+// Create event with validation
+router.post(
+  '/',
+  protect,
+  [
+    body('title').notEmpty().withMessage('Title is required'),
+    body('description').notEmpty().withMessage('Description is required'),
+    body('date').isISO8601().toDate().withMessage('Valid date is required'),
+    body('time').notEmpty().withMessage('Time is required'),
+    body('venue').notEmpty().withMessage('Venue is required'),
+    body('category').notEmpty().withMessage('Category is required'),
+    body('maxParticipants').optional().isInt({ min: 1 }).withMessage('Max participants must be a positive number')
+  ],
+  validateRequest,
+  async (req, res) => {
+    try {
+      const eventData = {
+        title: req.body.title,
+        description: req.body.description,
+        date: req.body.date,
+        time: req.body.time,
+        venue: req.body.venue,
+        category: req.body.category,
+        maxParticipants: parseInt(req.body.maxParticipants) || 100,
+        creator: req.user._id,
+        image: req.body.image || '', 
+        organizer: {
+          name: req.body.organizerName || 'Default Organizer',
+          description: req.body.organizerDescription || ''
+        },
+        schedule: JSON.parse(req.body.schedule || '[]')
+      };
 
-    const event = new Event(eventData);
-    await event.save();
-    const populatedEvent = await Event.findById(event._id).populate('creator');
+      const event = new Event(eventData);
+      await event.save();
+      const populatedEvent = await Event.findById(event._id).populate('creator');
 
-    res.status(201).json(populatedEvent);
-  } catch (error) {
-    console.error('Event creation error:', error);
-    res.status(400).json({ message: error.message });
+      res.status(201).json(populatedEvent);
+    } catch (error) {
+      console.error('Event creation error:', error);
+      res.status(400).json({ message: error.message });
+    }
   }
-});
+);
 
 // Delete event
-router.delete('/:id', protect, async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) return res.status(404).json({ message: 'Event not found' });
+router.delete(
+  '/:id',
+  protect,
+  param('id').isMongoId().withMessage('Invalid event ID'),
+  validateRequest,
+  async (req, res) => {
+    try {
+      const event = await Event.findById(req.params.id);
+      if (!event) return res.status(404).json({ message: 'Event not found' });
 
-    if (event.creator.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to delete this event' });
-    }
-
-    // Extract public ID from Cloudinary URL
-    if (event.image) {
-      try {
-        const urlParts = event.image.split('/');
-        const filenameWithExtension = urlParts[urlParts.length - 1]; 
-        const publicId = `events/${filenameWithExtension.split('.')[0]}`; // Ensure folder is included
-
-        console.log(`Deleting Cloudinary image: ${publicId}`);
-        await cloudinary.uploader.destroy(publicId);
-      } catch (deleteError) {
-        console.error('Cloudinary Delete Error:', deleteError);
+      if (event.creator.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Not authorized to delete this event' });
       }
+
+      if (event.image) {
+        try {
+          const urlParts = event.image.split('/');
+          const filenameWithExtension = urlParts[urlParts.length - 1]; 
+          const publicId = `events/${filenameWithExtension.split('.')[0]}`;
+
+          console.log(`Deleting Cloudinary image: ${publicId}`);
+          await cloudinary.uploader.destroy(publicId);
+        } catch (deleteError) {
+          console.error('Cloudinary Delete Error:', deleteError);
+        }
+      }
+
+      await event.deleteOne();
+      res.json({ message: 'Event deleted successfully' });
+    } catch (error) {
+      console.error('Delete error:', error);
+      res.status(500).json({ message: error.message });
     }
-
-    await event.deleteOne();
-    res.json({ message: 'Event deleted successfully' });
-  } catch (error) {
-    console.error('Delete error:', error);
-    res.status(500).json({ message: error.message });
   }
-});
+);
 
-// Get event by ID with populated fields
-router.get('/:id', async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id)
-      .populate('creator', 'name email')
-      .populate('participants', 'name email');
-    
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
+// Get event by ID with validation
+router.get(
+  '/:id',
+  param('id').isMongoId().withMessage('Invalid event ID'),
+  validateRequest,
+  async (req, res) => {
+    try {
+      const event = await Event.findById(req.params.id)
+        .populate('creator', 'name email')
+        .populate('participants', 'name email');
+
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      res.json(event);
+    } catch (error) {
+      console.error('Error fetching event:', error);
+      res.status(500).json({ message: 'Error fetching event details' });
     }
-
-    res.json(event);
-  } catch (error) {
-    console.error('Error fetching event:', error);
-    res.status(500).json({ message: 'Error fetching event details' });
   }
-});
+);
 
-// Unregister from event
-router.delete('/:id/register', protect, async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) {
-      return res.status(404).json({ error: 'Event not found' });
+// Save/Unsave an event
+router.post(
+  '/:id/save',
+  protect,
+  param('id').isMongoId().withMessage('Invalid event ID'),
+  validateRequest,
+  async (req, res) => {
+    try {
+      const event = await Event.findById(req.params.id);
+      if (!event) {
+        return res.status(404).json({ message: 'Event not found' });
+      }
+
+      const isSaved = event.savedBy.includes(req.user._id);
+      if (isSaved) {
+        event.savedBy = event.savedBy.filter(id => id.toString() !== req.user._id.toString());
+      } else {
+        event.savedBy.push(req.user._id);
+      }
+
+      await event.save();
+      res.json({ message: isSaved ? 'Event unsaved' : 'Event saved', isSaved: !isSaved });
+    } catch (error) {
+      console.error('Error saving event:', error);
+      res.status(500).json({ message: 'Error saving event' });
     }
-
-    const participantIndex = event.participants.indexOf(req.user.id);
-    if (participantIndex === -1) {
-      return res.status(400).json({ error: 'Not registered for this event' });
-    }
-
-    event.participants.splice(participantIndex, 1);
-    await event.save();
-    res.json(event);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
-});
-
-// Save/unsave an event
-router.post('/:id/save', protect, async (req, res) => {
-  try {
-    const event = await Event.findById(req.params.id);
-    if (!event) {
-      return res.status(404).json({ message: 'Event not found' });
-    }
-
-    const isSaved = event.savedBy.includes(req.user._id);
-    if (isSaved) {
-      // Remove user from savedBy array
-      event.savedBy = event.savedBy.filter(id => id.toString() !== req.user._id.toString());
-    } else {
-      // Add user to savedBy array
-      event.savedBy.push(req.user._id);
-    }
-
-    await event.save();
-    res.json({ message: isSaved ? 'Event unsaved' : 'Event saved', isSaved: !isSaved });
-  } catch (error) {
-    console.error('Error saving event:', error);
-    res.status(500).json({ message: 'Error saving event' });
-  }
-});
-
-// Get user's events
-router.get('/user', protect, async (req, res) => {
-  try {
-    const events = await Event.find({ participants: req.user.id })
-      .populate('creator', 'username')
-      .sort({ date: 1 });
-    res.json(events);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get saved events for a user
-router.get('/user/saved', protect, async (req, res) => {
-  try {
-    const events = await Event.find({
-      savedBy: req.user._id
-    }).populate('creator', 'name email');
-    res.json(events);
-  } catch (error) {
-    console.error('Error fetching saved events:', error);
-    res.status(500).json({ message: 'Error fetching saved events' });
-  }
-});
+);
 
 export default router;
