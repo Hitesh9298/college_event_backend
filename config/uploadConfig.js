@@ -3,13 +3,16 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import cloudinary from './cloudinary.js';
 
 const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req, file) => ({
-    folder: 'events',
-    format: file.mimetype.split('/')[1], // Extracts the format dynamically
-    public_id: `event-${Date.now()}-${file.originalname.split('.')[0]}`, 
-    transformation: [{ width: 1000, height: 1000, crop: "limit" }]
-  }),
+  cloudinary,
+  params: async (req, file) => {
+    const format = file.mimetype.split('/')[1]; // Extracts the format dynamically
+    return {
+      folder: 'events',
+      format: format === 'jpeg' ? 'jpg' : format, // Convert jpeg to jpg
+      public_id: `event-${Date.now()}-${file.originalname.split('.')[0]}`,
+      transformation: [{ width: 1000, height: 1000, crop: "limit" }]
+    };
+  },
 });
 
 const upload = multer({ 

@@ -8,13 +8,6 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 
 // Configure multer for file uploads
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'events',
-    allowed_formats: ['jpg', 'png', 'jpeg']
-  }
-});
 
 const router = express.Router();
 
@@ -77,11 +70,9 @@ router.get('/', async (req, res) => {
 // Update event creation route
 
 // Update event creation route
+// ✅ Create Event
 router.post('/', protect, upload.single('image'), async (req, res) => {
   try {
-    console.log('Request body:', req.body);
-    console.log('Uploaded file:', req.file);
-
     if (!req.file?.path) {
       return res.status(400).json({ message: 'Image is required' });
     }
@@ -105,16 +96,12 @@ router.post('/', protect, upload.single('image'), async (req, res) => {
 
     const event = new Event(eventData);
     await event.save();
-
     const populatedEvent = await Event.findById(event._id).populate('creator');
-    res.status(201).json(populatedEvent);
 
+    res.status(201).json(populatedEvent);
   } catch (error) {
     console.error('Event creation error:', error);
-    res.status(400).json({ 
-      message: error.message,
-      details: error.errors
-    });
+    res.status(400).json({ message: error.message });
   }
 });
 
@@ -130,30 +117,27 @@ router.delete('/:id', protect, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to delete this event' });
     }
 
-    // Extract the public ID from Cloudinary URL
+    // Extract public ID from Cloudinary URL
     if (event.image) {
       try {
         const urlParts = event.image.split('/');
-        const filenameWithExtension = urlParts[urlParts.length - 1]; // Get last part
-        const publicId = filenameWithExtension.split('.')[0]; // Remove file extension
+        const filenameWithExtension = urlParts[urlParts.length - 1]; 
+        const publicId = `events/${filenameWithExtension.split('.')[0]}`; // Ensure folder is included
 
         console.log(`Deleting Cloudinary image: ${publicId}`);
-        await cloudinary.uploader.destroy(`events/${publicId}`); // Ensure correct folder
+        await cloudinary.uploader.destroy(publicId);
       } catch (deleteError) {
-        console.error('❌ Cloudinary Delete Error:', deleteError);
+        console.error('Cloudinary Delete Error:', deleteError);
       }
     }
 
     await event.deleteOne();
     res.json({ message: 'Event deleted successfully' });
   } catch (error) {
-    console.error('❌ Delete error:', error);
+    console.error('Delete error:', error);
     res.status(500).json({ message: error.message });
   }
 });
-
- 
-
 
 // Get event by ID with populated fields
 router.get('/:id', async (req, res) => {
