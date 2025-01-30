@@ -67,7 +67,7 @@ const eventSchema = new mongoose.Schema({
   }],
   image: {
     type: String,
-    required: [true, "Image URL is required"]
+    required: [false, "Image URL is required"]
   },
   status: {
     type: String,

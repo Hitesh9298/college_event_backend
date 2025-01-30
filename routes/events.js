@@ -54,10 +54,7 @@ router.get('/', async (req, res) => {
 // Create event
 router.post('/', protect, async (req, res) => {
   try {
-    if (!req.body.image) {
-      return res.status(400).json({ message: 'Image URL is required' });
-    }
-
+    
     const eventData = {
       title: req.body.title,
       description: req.body.description,
