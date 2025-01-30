@@ -1,4 +1,3 @@
-// filepath: /c:/Users/lenovo/Desktop/CollegeProject/server/routes/events.js
 import express from 'express';
 import { protect } from '../middleware/authMiddleware.js';
 import Event from '../models/Event.js';
