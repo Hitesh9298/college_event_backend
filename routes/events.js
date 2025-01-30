@@ -97,12 +97,14 @@ router.post(
   validateRequest,
   async (req, res) => {
     try {
+      console.log('Received form data:', req.body); // Debug log
+
       const eventData = {
         title: req.body.title,
         description: req.body.description,
         date: req.body.date,
         time: req.body.time,
-        venue: req.body.venue,
+        location: req.body.location,
         category: req.body.category,
         maxParticipants: parseInt(req.body.maxParticipants) || 100,
         creator: req.user._id,
@@ -130,7 +132,6 @@ router.post(
     }
   }
 );
-
 // Delete event
 router.delete(
   '/:id',
