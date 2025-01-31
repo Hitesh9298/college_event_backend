@@ -190,6 +190,34 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Register for event
+router.post('/:id/register', protect, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    // Check if user is already registered
+    if (event.participants.includes(req.user._id)) {
+      return res.status(400).json({ message: 'Already registered for this event' });
+    }
+
+    // Check if event is full
+    if (event.participants.length >= event.maxParticipants) {
+      return res.status(400).json({ message: 'Event is full' });
+    }
+
+    event.participants.push(req.user._id);
+    await event.save();
+
+    res.json({ message: 'Successfully registered for event' });
+  } catch (error) {
+    console.error('Error registering for event:', error);
+    res.status(500).json({ message: 'Error registering for event' });
+  }
+});
+// Unregister from event
 // Unregister from event
 router.delete('/:id/register', protect, async (req, res) => {
   try {
