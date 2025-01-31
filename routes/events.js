@@ -9,6 +9,9 @@ import { validateRequest } from '../middleware/validateRequest.js';
 
 const router = express.Router();
 
+// Create a cache map to store events data
+const cache = new Map(); // Simple in-memory cach
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -47,6 +50,7 @@ router.post('/:id/register', protect, async (req, res) => {
 });
 
 // Get all events
+// GET all events with caching
 router.get('/', async (req, res) => {
   try {
     const { category, date, location } = req.query;
@@ -56,9 +60,21 @@ router.get('/', async (req, res) => {
     if (date) query.date = new Date(date);
     if (location) query.location = new RegExp(location, 'i');
 
+    // Check cache first
+    const cacheKey = JSON.stringify({ category, date, location });
+    if (cache.has(cacheKey)) {
+      console.log('Cache hit');
+      return res.json(cache.get(cacheKey)); // Return cached data
+    }
+
+    // If not in cache, fetch from database
+    console.log('Cache miss, querying DB...');
     const events = await Event.find(query)
       .populate('creator', 'name email')
       .sort({ date: 1 });
+
+    // Store the result in the cache
+    cache.set(cacheKey, events);
 
     res.json(events);
   } catch (error) {
@@ -68,23 +84,11 @@ router.get('/', async (req, res) => {
 
 // Create event with validation
 // Create event with form data (image already uploaded to Cloudinary)
+// Example of a route to clear the cache (e.g., after event creation or update)
 router.post('/', protect, async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      date,
-      time,
-      venue,
-      category,
-      maxParticipants,
-      organizerName,
-      organizerDescription,
-      image,  // This is the Cloudinary image URL from frontend
-      schedule
-    } = req.body;
+    const { title, description, date, time, venue, category, maxParticipants, organizerName, organizerDescription, image, schedule } = req.body;
 
-    // Parse schedule if it's sent as a JSON string
     let parsedSchedule = [];
     if (schedule) {
       try {
@@ -97,7 +101,6 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
-    // Create the event
     const event = await Event.create({
       title,
       description,
@@ -107,7 +110,7 @@ router.post('/', protect, async (req, res) => {
       category,
       maxParticipants: parseInt(maxParticipants) || 100,
       creator: req.user._id,
-      image, // Directly storing Cloudinary image URL
+      image,
       organizer: {
         name: organizerName || 'Default Organizer',
         description: organizerDescription || ''
@@ -116,8 +119,11 @@ router.post('/', protect, async (req, res) => {
     });
 
     const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
-    res.status(201).json(populatedEvent);
 
+    // After creating a new event, clear the cache as the data has changed
+    cache.clear(); // Clear the cache (or you can clear only relevant cache keys)
+
+    res.status(201).json(populatedEvent);
   } catch (error) {
     console.error('Event creation error:', error);
     res.status(400).json({ 
@@ -126,6 +132,8 @@ router.post('/', protect, async (req, res) => {
     });
   }
 });
+
+// Other routes (register, unregister, etc.) remain the same...
 // Delete event
 router.delete(
   '/:id',
