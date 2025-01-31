@@ -18,36 +18,33 @@ cloudinary.config({
 
 
 // Register for event with validation
-router.post(
-  '/:id/register',
-  protect,
-  param('id').isMongoId().withMessage('Invalid event ID'),
-  validateRequest,
-  async (req, res) => {
-    try {
-      const event = await Event.findById(req.params.id);
-      if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
-      }
-
-      if (event.participants.includes(req.user._id)) {
-        return res.status(400).json({ message: 'Already registered for this event' });
-      }
-
-      if (event.participants.length >= event.maxParticipants) {
-        return res.status(400).json({ message: 'Event is full' });
-      }
-
-      event.participants.push(req.user._id);
-      await event.save();
-
-      res.json({ message: 'Successfully registered for event' });
-    } catch (error) {
-      console.error('Error registering for event:', error);
-      res.status(500).json({ message: 'Error registering for event' });
+// Register for event - Changed 'auth' to 'protect'
+router.post('/:id/register', protect, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
     }
+
+    // Check if user is already registered
+    if (event.participants.includes(req.user._id)) {
+      return res.status(400).json({ message: 'Already registered for this event' });
+    }
+
+    // Check if event is full
+    if (event.participants.length >= event.maxParticipants) {
+      return res.status(400).json({ message: 'Event is full' });
+    }
+
+    event.participants.push(req.user._id);
+    await event.save();
+
+    res.json({ message: 'Successfully registered for event' });
+  } catch (error) {
+    console.error('Error registering for event:', error);
+    res.status(500).json({ message: 'Error registering for event' });
   }
-);
+});
 
 // Get all events
 router.get('/', async (req, res) => {
@@ -167,55 +164,93 @@ router.delete(
 );
 
 // Get event by ID with validation
-router.get(
-  '/:id',
-  param('id').isMongoId().withMessage('Invalid event ID'),
-  validateRequest,
-  async (req, res) => {
-    try {
-      const event = await Event.findById(req.params.id)
-        .populate('creator', 'name email')
-        .populate('participants', 'name email');
-
-      if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
-      }
-
-      res.json(event);
-    } catch (error) {
-      console.error('Error fetching event:', error);
-      res.status(500).json({ message: 'Error fetching event details' });
+// Get event by ID with populated fields
+router.get('/:id', async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id)
+      .populate('creator', 'name email')
+      .populate('participants', 'name email');
+    
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
     }
+
+    res.json(event);
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    res.status(500).json({ message: 'Error fetching event details' });
   }
-);
+});
+
+// Unregister from event
+router.delete('/:id/register', protect, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+
+    const participantIndex = event.participants.indexOf(req.user.id);
+    if (participantIndex === -1) {
+      return res.status(400).json({ error: 'Not registered for this event' });
+    }
+
+    event.participants.splice(participantIndex, 1);
+    await event.save();
+    res.json(event);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Save/Unsave an event
-router.post(
-  '/:id/save',
-  protect,
-  param('id').isMongoId().withMessage('Invalid event ID'),
-  validateRequest,
-  async (req, res) => {
-    try {
-      const event = await Event.findById(req.params.id);
-      if (!event) {
-        return res.status(404).json({ message: 'Event not found' });
-      }
-
-      const isSaved = event.savedBy.includes(req.user._id);
-      if (isSaved) {
-        event.savedBy = event.savedBy.filter(id => id.toString() !== req.user._id.toString());
-      } else {
-        event.savedBy.push(req.user._id);
-      }
-
-      await event.save();
-      res.json({ message: isSaved ? 'Event unsaved' : 'Event saved', isSaved: !isSaved });
-    } catch (error) {
-      console.error('Error saving event:', error);
-      res.status(500).json({ message: 'Error saving event' });
+router.post('/:id/save', protect, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
     }
+
+    const isSaved = event.savedBy.includes(req.user._id);
+    if (isSaved) {
+      // Remove user from savedBy array
+      event.savedBy = event.savedBy.filter(id => id.toString() !== req.user._id.toString());
+    } else {
+      // Add user to savedBy array
+      event.savedBy.push(req.user._id);
+    }
+
+    await event.save();
+    res.json({ message: isSaved ? 'Event unsaved' : 'Event saved', isSaved: !isSaved });
+  } catch (error) {
+    console.error('Error saving event:', error);
+    res.status(500).json({ message: 'Error saving event' });
   }
-);
+});
+
+// Get user's events
+router.get('/user', protect, async (req, res) => {
+  try {
+    const events = await Event.find({ participants: req.user.id })
+      .populate('creator', 'username')
+      .sort({ date: 1 });
+    res.json(events);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get saved events for a user
+router.get('/user/saved', protect, async (req, res) => {
+  try {
+    const events = await Event.find({
+      savedBy: req.user._id
+    }).populate('creator', 'name email');
+    res.json(events);
+  } catch (error) {
+    console.error('Error fetching saved events:', error);
+    res.status(500).json({ message: 'Error fetching saved events' });
+  }
+});
 
 export default router;
