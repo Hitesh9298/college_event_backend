@@ -70,39 +70,57 @@ router.get('/', async (req, res) => {
 });
 
 // Create event with validation
+// Create event with form data (image already uploaded to Cloudinary)
 router.post('/', protect, async (req, res) => {
   try {
-    const eventData = {
-      title: req.body.title,
-      description: req.body.description,
-      date: req.body.date,
-      time: req.body.time,
-      venue: req.body.venue,
-      category: req.body.category,
-      maxParticipants: parseInt(req.body.maxParticipants) || 100,
-      creator: req.user._id,
-      image: req.body.image || '', // Use image URL directly
-      organizer: {
-        name: req.body.organizerName || 'Default Organizer',
-        description: req.body.organizerDescription || ''
-      }
-    };
+    const {
+      title,
+      description,
+      date,
+      time,
+      venue,
+      category,
+      maxParticipants,
+      organizerName,
+      organizerDescription,
+      image,  // This is the Cloudinary image URL from frontend
+      schedule
+    } = req.body;
 
-    if (req.body.schedule) {
+    // Parse schedule if it's sent as a JSON string
+    let parsedSchedule = [];
+    if (schedule) {
       try {
-        eventData.schedule = JSON.parse(req.body.schedule);
+        parsedSchedule = JSON.parse(schedule);
       } catch (error) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           message: 'Invalid schedule format',
           errors: [{ msg: 'Schedule must be a valid JSON array' }]
         });
       }
     }
 
-    const event = await Event.create(eventData);
-    const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
+    // Create the event
+    const event = await Event.create({
+      title,
+      description,
+      date,
+      time,
+      venue,
+      category,
+      maxParticipants: parseInt(maxParticipants) || 100,
+      creator: req.user._id,
+      image, // Directly storing Cloudinary image URL
+      organizer: {
+        name: organizerName || 'Default Organizer',
+        description: organizerDescription || ''
+      },
+      schedule: parsedSchedule
+    });
 
+    const populatedEvent = await Event.findById(event._id).populate('creator', 'name email');
     res.status(201).json(populatedEvent);
+
   } catch (error) {
     console.error('Event creation error:', error);
     res.status(400).json({ 
