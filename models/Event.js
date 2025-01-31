@@ -41,10 +41,8 @@ const eventSchema = new mongoose.Schema({
     description: String
   },
   schedule: [{
-    type: Array,
     time: String,
     activity: String,
-    required : false
   }],
   maxParticipants: {
     type: Number,
