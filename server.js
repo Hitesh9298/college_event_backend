@@ -10,6 +10,7 @@ import eventRoutes from './routes/events.js';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import initializeSocket from './socket.js';
+import contactRouter from './routes/contact.js';  // Note the .js extension
 
 
 // Configure multer for image upload
@@ -95,7 +96,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/events', eventRoutes);
-
+app.use('/api/contact', contactRouter);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
